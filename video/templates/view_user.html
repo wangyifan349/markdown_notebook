@@ -1,0 +1,15 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h3 class="text-success mb-4">{{ user.username }} 的公开视频</h3>
+{% if videos %}
+<ul class="list-group shadow-sm">
+  {% for v in videos %}
+  <li class="list-group-item d-flex justify-content-between align-items-center">
+    <a href="{{ url_for('play_video', username=user.username, video_id=v.id) }}">{{ v.title }}</a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="text-muted">此用户暂无公开视频。</p>
+{% endif %}
+{% endblock %}
