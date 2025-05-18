@@ -1,0 +1,13 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h3 class="text-success mb-4">{{ video.title }} - 来自 {{ username }}</h3>
+
+<div class="ratio ratio-16x9 shadow-sm mb-4">
+  <video controls>
+    <source src="{{ url_for('serve_video', username=username, filename=video.filename) }}" type="video/mp4" />
+    您的浏览器不支持视频播放。
+  </video>
+</div>
+
+<a href="{{ url_for('view_user', username=username) }}" class="btn btn-outline-success">返回 {{ username }} 的公开视频列表</a>
+{% endblock %}
