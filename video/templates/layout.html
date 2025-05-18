@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>视频平台</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background-color: #e8f5e9; /* 淡绿背景 */
+      color: #2e7d32;
+    }
+    nav a {
+      color: #2e7d32;
+      font-weight: 600;
+    }
+    nav a:hover {
+      color: #1b5e20;
+      text-decoration: none;
+    }
+    .form-control:focus {
+      border-color: #4caf50;
+      box-shadow: 0 0 5px #a5d6a7;
+    }
+    .btn-success {
+      background-color: #4caf50;
+      border-color: #4caf50;
+    }
+    .btn-success:hover {
+      background-color: #388e3c;
+      border-color: #2e7d32;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-md bg-light">
+    <div class="container">
+      <a class="navbar-brand text-success fw-bold" href="{{ url_for('index') }}">视频平台</a>
+      <div class="collapse navbar-collapse">
+        <ul class="navbar-nav ms-auto mb-2 mb-md-0">
+          {% if session.user_id %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('manage') }}">管理</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('search') }}">用户搜索</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">登出</a></li>
+          {% else %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">登录</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('register') }}">注册</a></li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'success' if category=='success' else ('danger' if category=='danger' else ('warning' if category=='warning' else 'info')) }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
