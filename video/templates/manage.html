@@ -1,0 +1,62 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h3 class="text-success mb-4">你好，{{ username }}，管理您的视频</h3>
+
+<div class="card mb-4 shadow-sm">
+  <div class="card-body">
+    <h5>上传新视频</h5>
+    <form method="POST" enctype="multipart/form-data" class="row g-3 align-items-center">
+      <div class="col-md-6">
+        <input type="file" class="form-control" name="video" accept="video/*" required>
+      </div>
+      <div class="col-md-4">
+        <input type="text" class="form-control" name="title" placeholder="请输入标题（不填会用文件名）">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-success w-100" type="submit">上传</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<h4>你的视频列表</h4>
+<div class="table-responsive">
+<table class="table table-bordered align-middle shadow-sm bg-white">
+<thead class="table-success">
+  <tr>
+    <th>标题</th>
+    <th>文件名</th>
+    <th>状态</th>
+    <th>操作</th>
+  </tr>
+</thead>
+<tbody>
+  {% for v in videos %}
+  <tr>
+    <td style="min-width:220px;">
+      <form method="POST" action="{{ url_for('rename_video', video_id=v.id) }}" class="d-flex gap-2">
+        <input type="text" class="form-control form-control-sm" name="title" value="{{ v.title }}" required>
+        <button type="submit" class="btn btn-sm btn-success">改名</button>
+      </form>
+    </td>
+    <td class="text-break">{{ v.filename }}</td>
+    <td>{{ "公开" if v.visible else "隐藏" }}</td>
+    <td class="d-flex gap-2 flex-wrap">
+      <form method="POST" action="{{ url_for('delete_video', video_id=v.id) }}" onsubmit="return confirm('确定删除此视频吗？');" >
+        <button type="submit" class="btn btn-sm btn-danger">删除</button>
+      </form>
+      <form method="POST" action="{{ url_for('toggle_visibility', video_id=v.id) }}">
+        <button type="submit" class="btn btn-sm btn-outline-success">
+          {{ "隐藏" if v.visible else "公开" }}
+        </button>
+      </form>
+      <a href="{{ url_for('serve_video', username=username, filename=v.filename) }}" target="_blank" class="btn btn-sm btn-outline-primary">查看视频</a>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4" class="text-center">您还没有上传视频。</td></tr>
+  {% endfor %}
+</tbody>
+</table>
+</div>
+{% endblock %}
