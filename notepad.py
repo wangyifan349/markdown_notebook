@@ -3,11 +3,13 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import markdown
 from markupsafe import Markup
+
 app = Flask(__name__)
 app.secret_key = 'replace_with_a_long_random_secret_key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///notes_auth.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+
 # ----------------------------------
 # 数据模型定义
 # ----------------------------------
@@ -22,6 +24,7 @@ class Note(db.Model):
     title = db.Column(db.String(150), nullable=False)
     content = db.Column(db.Text, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    is_public = db.Column(db.Boolean, default=False, nullable=False)
 
 # ----------------------------------
 # 工具函数
@@ -37,6 +40,7 @@ def lcs_length(s1, s2):
             else:
                 dp[i+1][j+1] = max(dp[i+1][j], dp[i][j+1])
     return dp[m][n]
+
 def login_required(f):
     """装饰器：检查登录，未登录重定向"""
     from functools import wraps
@@ -57,14 +61,13 @@ def index():
         return redirect(url_for('notes'))
     else:
         return redirect(url_for('login'))
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        # 获取表单数据
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
         password2 = request.form.get('password2', '').strip()
-        # 校验表单
         if not username or not password or not password2:
             flash('请完整填写表单')
             return redirect(url_for('register'))
@@ -74,7 +77,6 @@ def register():
         if User.query.filter_by(username=username).first():
             flash('用户名已被注册')
             return redirect(url_for('register'))
-        # 新建用户，保存密码哈希
         password_hash = generate_password_hash(password)
         user = User(username=username, password_hash=password_hash)
         db.session.add(user)
@@ -86,11 +88,9 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # 获取表单数据
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
         user = User.query.filter_by(username=username).first()
-        # 验证身份
         if user and check_password_hash(user.password_hash, password):
             session['user_id'] = user.id
             session['username'] = user.username
@@ -120,52 +120,49 @@ def new_note():
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         content = request.form.get('content', '').strip()
-
+        is_public = ('is_public' in request.form)
         if not title:
             flash('标题不能为空')
             return redirect(url_for('new_note'))
-
-        note = Note(title=title, content=content, user_id=session['user_id'])
+        note = Note(title=title, content=content, user_id=session['user_id'], is_public=is_public)
         db.session.add(note)
         db.session.commit()
         flash('笔记创建成功')
         return redirect(url_for('notes'))
-
     return render_template_string(EDIT_NOTE_HTML, note=None, action_url=url_for('new_note'), page_title='新建笔记')
 
 @app.route('/notes/<int:note_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_note(note_id):
     note = Note.query.get_or_404(note_id)
-
     if note.user_id != session['user_id']:
         flash('无权编辑该笔记')
         return redirect(url_for('notes'))
-
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         content = request.form.get('content', '').strip()
+        is_public = ('is_public' in request.form)
         if not title:
             flash('标题不能为空')
             return redirect(url_for('edit_note', note_id=note_id))
         note.title = title
         note.content = content
+        note.is_public = is_public
         db.session.commit()
         flash('笔记保存成功')
         return redirect(url_for('notes'))
-    return render_template_string(EDIT_NOTE_HTML,
-                                  note=note,
-                                  action_url=url_for('edit_note', note_id=note.id),
-                                  page_title='编辑笔记')
+    return render_template_string(EDIT_NOTE_HTML, note=note, action_url=url_for('edit_note', note_id=note.id), page_title='编辑笔记')
 
 @app.route('/notes/<int:note_id>')
 @login_required
 def view_note(note_id):
     note = Note.query.get_or_404(note_id)
     is_owner = (note.user_id == session['user_id'])
-    # 正常只能查看自己的笔记，这里允许其他用户查看需走搜索跳转
-    html_content = Markup(markdown.markdown(note.content, extensions=['extra', 'codehilite']))    
+    html_content = Markup(markdown.markdown(note.content, extensions=['extra', 'codehilite']))
     if not is_owner:
+        if not note.is_public:
+            flash('该笔记为私密，仅作者可见')
+            return redirect(url_for('notes'))
         flash('您正在查看他人笔记，只读模式')
     return render_template_string(VIEW_NOTE_HTML, note=note, html_content=html_content, is_owner=is_owner)
 
@@ -180,17 +177,19 @@ def search():
             flash('请输入要搜索的用户名')
             return redirect(url_for('search'))
         users = User.query.filter(User.username != session['username']).all()
-        # 用普通循环计算LCS并排序，去掉嵌套列表表达式
+
         scored_users = []
         for user in users:
+            public_notes = [n for n in user.notes if n.is_public]
+            if not public_notes:
+                continue
             score = lcs_length(query, user.username)
             if score > 0:
                 scored_users.append((score, user))
         scored_users.sort(key=lambda x: x[0], reverse=True)
-        # 单独建立用户列表
-        results = []
-        for item in scored_users:
-            results.append(item[1])
+
+        results = [item[1] for item in scored_users]
+
         if len(results) == 0:
             flash('无匹配用户')
     return render_template_string(SEARCH_HTML, query=query, results=results)
@@ -198,7 +197,6 @@ def search():
 @app.route('/users/<int:user_id>/notes/<int:note_id>')
 @login_required
 def view_others_note(user_id, note_id):
-    # 查看别人笔记，允许只读访问
     if user_id == session['user_id']:
         return redirect(url_for('view_note', note_id=note_id))
     user = User.query.get_or_404(user_id)
@@ -206,12 +204,15 @@ def view_others_note(user_id, note_id):
     if note.user_id != user.id:
         flash('笔记不属于该用户')
         return redirect(url_for('search'))
+    if not note.is_public:
+        flash('该笔记为私密，仅作者可见')
+        return redirect(url_for('search'))
     html_content = Markup(markdown.markdown(note.content, extensions=['extra', 'codehilite']))
     flash(f'您正在查看 {user.username} 的笔记，只读模式')
     return render_template_string(VIEW_NOTE_HTML, note=note, html_content=html_content, is_owner=False)
+
 # ----------------------------------
-# 模板字符串（Bootstrap 5，响应式，美观）
-#   简单写法，去掉嵌套 {{ }} 里的复杂表达式
+# 模板字符串（Bootstrap 5  + MathJax + 代码高亮 + 公开复选）
 # ----------------------------------
 NAVBAR_HTML = '''
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
@@ -343,7 +344,7 @@ NOTES_HTML = '''
           </div>
         {% endif %}
       {% endwith %}
-      
+
       {% if notes|length == 0 %}
         <div class="alert alert-secondary my-3">暂无笔记，<a href="{{ url_for('new_note') }}">点击新建</a>吧！</div>
       {% else %}
@@ -352,7 +353,14 @@ NOTES_HTML = '''
             <a href="{{ url_for('view_note', note_id=note.id) }}" 
                class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
               {{ note.title }}
-              <a href="{{ url_for('edit_note', note_id=note.id) }}" class="btn btn-outline-secondary btn-sm ms-3">编辑</a>
+              <span>
+                {% if note.is_public %}
+                  <span class="badge bg-success me-2">公开</span>
+                {% else %}
+                  <span class="badge bg-secondary me-2">私密</span>
+                {% endif %}
+                <a href="{{ url_for('edit_note', note_id=note.id) }}" class="btn btn-outline-secondary btn-sm">编辑</a>
+              </span>
             </a>
           {% endfor %}
         </div>
@@ -371,6 +379,7 @@ EDIT_NOTE_HTML = '''
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ page_title }} - Markdown笔记本</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script"></script>
   </head>
   <body>
     ''' + NAVBAR_HTML + '''
@@ -385,7 +394,6 @@ EDIT_NOTE_HTML = '''
           </div>
         {% endif %}
       {% endwith %}
-
       <form method="post" novalidate>
         <div class="mb-3">
           <label for="title" class="form-label">标题</label>
@@ -394,6 +402,12 @@ EDIT_NOTE_HTML = '''
         <div class="mb-3">
           <label for="content" class="form-label">内容（Markdown）</label>
           <textarea name="content" id="content" rows="15" class="form-control">{{ note.content if note else '' }}</textarea>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" value="true" id="is_public" name="is_public" {% if note and note.is_public %}checked{% endif %}>
+          <label class="form-check-label" for="is_public">
+            公开此笔记（允许其他用户搜索并查看）
+          </label>
         </div>
         <button type="submit" class="btn btn-primary">{{ '保存' if note else '创建' }}</button>
         <a href="{{ url_for('notes') }}" class="btn btn-secondary ms-2">返回</a>
@@ -421,12 +435,19 @@ VIEW_NOTE_HTML = '''
         display: block;
       }
     </style>
+    <!-- MathJax 支持数学公式 -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script"></script>
   </head>
   <body>
     ''' + NAVBAR_HTML + '''
     <div class="container mt-2" style="max-width: 900px;">
       <h2>{{ note.title }}</h2>
       <p><small>用户：{{ note.user.username }}</small></p>
+      {% if note.is_public %}
+        <span class="badge bg-success mb-2">公开</span>
+      {% else %}
+        <span class="badge bg-secondary mb-2">私密</span>
+      {% endif %}
       {% with messages = get_flashed_messages() %}
         {% if messages %}
           <div class="alert alert-info" role="alert">
@@ -461,7 +482,6 @@ SEARCH_HTML = '''
     ''' + NAVBAR_HTML + '''
     <div class="container mt-2" style="max-width: 800px;">
       <h2>搜索其他用户的笔记</h2>
-      
       {% with messages = get_flashed_messages() %}
         {% if messages %}
           <div class="alert alert-warning" role="alert">
@@ -471,7 +491,6 @@ SEARCH_HTML = '''
           </div>
         {% endif %}
       {% endwith %}
-      
       <form method="post" class="row g-3 mb-4" novalidate>
         <div class="col-9 col-sm-10">
           <input type="text" name="username" class="form-control" placeholder="输入用户名" value="{{ query }}">
@@ -480,22 +499,26 @@ SEARCH_HTML = '''
           <button type="submit" class="btn btn-primary w-100">搜索</button>
         </div>
       </form>
-      
       {% if results %}
         <h4>搜索结果（按最长公共子序列降序）：</h4>
         <ul class="list-group">
-          <!-- 普通for循环分割写法 -->
-          {% for i in range(results|length) %}
+          {% for user in results %}
             <li class="list-group-item">
-              <strong>{{ results[i].username }}</strong>
-              {% if results[i].notes|length == 0 %}
-                （无笔记）
+              <strong>{{ user.username }}</strong>
+              {% set public_notes = [] %}
+              {% for note in user.notes %}
+                {% if note.is_public %}
+                  {% do public_notes.append(note) %}
+                {% endif %}
+              {% endfor %}
+              {% if public_notes|length == 0 %}
+                （无公开笔记）
               {% else %}
                 <ul class="mt-2">
-                  {% for j in range(results[i].notes|length) %}
+                  {% for note in public_notes %}
                     <li>
-                      <a href="{{ url_for('view_others_note', user_id=results[i].id, note_id=results[i].notes[j].id) }}">
-                        {{ results[i].notes[j].title }}
+                      <a href="{{ url_for('view_others_note', user_id=user.id, note_id=note.id) }}">
+                        {{ note.title }}
                       </a>
                     </li>
                   {% endfor %}
@@ -505,7 +528,6 @@ SEARCH_HTML = '''
           {% endfor %}
         </ul>
       {% endif %}
-      
       <p class="mt-4"><a href="{{ url_for('notes') }}">返回我的笔记</a></p>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -516,7 +538,6 @@ SEARCH_HTML = '''
 # ----------------------------------
 # 启动服务
 # ----------------------------------
-
 if __name__ == '__main__':
     db.create_all()
     app.run(debug=True)
