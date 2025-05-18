@@ -53,17 +53,7 @@ git clone https://github.com/wangyifan349/markdown_notebook.git
 cd markdown_notebook
 ```
 
-### 2. 创建并激活虚拟环境（推荐）
-
-```bash
-python -m venv venv
-# Windows
-venv\Scripts\activate
-# macOS/Linux
-source venv/bin/activate
-```
-
-### 3. 安装依赖
+### 2. 安装依赖
 
 ```bash
 pip install -r requirements.txt
@@ -75,7 +65,7 @@ pip install -r requirements.txt
 pip install flask flask_sqlalchemy markdown pygments
 ```
 
-### 4. 运行项目
+### 3. 运行项目
 
 ```bash
 python app.py
