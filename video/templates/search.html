@@ -1,0 +1,18 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h3 class="text-success mb-4">搜索用户</h3>
+<form method="POST" class="d-flex mb-3">
+  <input type="text" name="query" value="{{ query }}" class="form-control me-2" placeholder="输入用户名关键字" required />
+  <button class="btn btn-success" type="submit">搜索</button>
+</form>
+
+{% if results %}
+<div class="list-group shadow-sm">
+  {% for u in results %}
+  <a href="{{ url_for('view_user', username=u.username) }}" class="list-group-item list-group-item-action">
+    {{ u.username }}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
