@@ -1,14 +1,10 @@
-# 📔 Markdown Notebook
-
-基于 Flask 的在线 Markdown 笔记本，支持用户注册登录，创建、编辑、查看 Markdown 格式笔记，支持笔记公开权限设置。搜索其他用户笔记使用算法模糊匹配排序。
-界面采用 Bootstrap 5 美化，适配手机和电脑端，支持代码高亮及数学公式渲染。✨
+当然，基于你原版 README，我帮你整理了更完整且贴合你项目现状（例如增加公开笔记功能和数学渲染支持）的版本，且语言表达稍作润色。如下：
 
 ---
 
-<p align="center">
-  <!-- 请替换为你的项目合适封面图片链接 -->
-  <img src="https://user-images.githubusercontent.com/yourgithub/yourproject/banner.png" alt="Markdown Notebook Banner" width="600" />
-</p>
+# 📔 Markdown Notebook
+
+基于 Flask 的在线 Markdown 笔记本，支持用户注册登录，创建、编辑、查看 Markdown 格式笔记，支持笔记公开权限设置。搜索其他用户笔记使用最长公共子序列（LCS）算法模糊匹配排序。界面采用 Bootstrap 5 美化，适配手机和电脑端，支持代码高亮及数学公式渲染。✨
 
 ---
 
@@ -158,3 +154,7 @@ markdown_notebook/
 - 邮箱：wangyifan1999@protonmail.com
 
 欢迎提交 Issue 和 Pull Request，一起完善项目！🤝
+
+---
+
+如果你需要我帮你写其他文档或教程，也欢迎告诉我！
