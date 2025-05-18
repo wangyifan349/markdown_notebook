@@ -152,7 +152,3 @@ markdown_notebook/
 - 邮箱：wangyifan1999@protonmail.com
 
 欢迎提交 Issue 和 Pull Request，一起完善项目！🤝
-
----
-
-如果你需要我帮你写其他文档或教程，也欢迎告诉我！
